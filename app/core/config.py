@@ -12,16 +12,15 @@ class Settings(BaseSettings):
     DATABASE_URL: str
 
 
-    @field_validator("DATABASE_URL")
-    def validate_database_url(cls, v):
-        if not v.startswith("postgresql+asyncpg://"):
-            raise ValueError("DATABASE_URL must start with 'postgresql+asyncpg://'")
-        return v
-
-
     model_config = SettingsConfigDict(
         env_file=".env", extra="ignore"
     )
+
+    def get_async_database_url(self) -> str:
+        if self.DATABASE_URL.startswith("postgresql://"):
+            return self.DATABASE_URL.replace(
+                "postgresql://", "postgresql+asyncpg://", 1)
+        return self.DATABASE_URL
 
 
 
