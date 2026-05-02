@@ -1,0 +1,139 @@
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from sqlalchemy import select, delete 
+from sqlalchemy.ext.asyncio import AsyncSession
+from jose import jwt, JWTError
+
+from ..core.config import settings 
+from ..core.security import create_tokens
+from ..database import get_db 
+from ..models import User, RefreshToken, LogoutRequest 
+import httpx 
+
+from ..utils import limiter
+
+
+router = APIRouter(prefix="/auth", tags=["Auth"])
+
+@router.get("/github/callback")
+@limiter.limit("10/minute")
+async def callback(request: Request, code: str, db: AsyncSession=Depends(get_db)):
+    async with httpx.AsyncClient() as client:
+        token_res = await client.post(
+            "https://github.com/login/oauth/access_token",
+            params={
+                "client_id": settings.GITHUB_CLIENT_ID,
+                "client_secret": settings.GITHUB_CLIENT_SECRET,
+                "code": code
+            },
+            headers={"Accept": "application/json"},
+        )
+
+        token_data = token_res.json()
+
+        gh_access_token = token_data.get("access_token")
+
+        if not gh_access_token:
+            raise HTTPException(
+                status_code=401,
+                detail="Failed to retrieve Github access token"
+            )
+
+        
+        user_res = await client.get(
+            "https://api.github.com/user",
+            headers={"Authorization": f"token {gh_access_token}"},
+        )
+        gh_user = user_res.json()
+        github_id = str(gh_user.get("id"))
+
+
+        query = select(User).where(User.github_id == github_id)
+        result = await db.execute(query)
+        user = result.scalar_one_or_none()
+
+        if not user:
+            user = User(
+                github_id=github_id,
+                username=gh_user.get("login"),
+                email=gh_user.get("email"),
+                role="analyst"
+            )
+
+            db.add(user)
+            await db.flush()
+
+        internal_user_id = str(user.id)
+        access_token, refresh_token = create_tokens(internal_user_id)
+
+        db.add(RefreshToken(token=refresh_token, user_id=user.id))
+
+        await db.commit()
+        await db.refresh(user)
+
+
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "user": {
+                "id": internal_user_id,
+                "username": user.username,
+                "role": user.role
+            }
+        }
+
+
+@router.post("/refresh")
+@limiter.limit("10/minute")
+async def refresh_access_token(request: Request, refresh_token: str, db: AsyncSession = Depends(get_db)):
+    try:
+        payload = jwt.decode(refresh_token, settings.JWT_SECRET, algorithms=[settings.ALGORITHM])
+        if payload.get("type") != "refresh":
+            raise HTTPException(status_code=401, detail="Invalid token type")
+        user_id = payload.get("sub")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Refresh token expired or tampered")
+
+
+    stmt = select(RefreshToken).where(RefreshToken.token == refresh_token)
+    result = await db.execute(stmt)
+    token_record = result.scalar_one_or_none()
+    
+    if not token_record:
+        raise HTTPException(status_code=401, detail="Refresh token revoked or already used")
+    
+    await db.execute(delete(RefreshToken).where(RefreshToken.token == refresh_token))
+    
+    new_access, new_refresh = create_tokens(str(user_id))
+    
+    db.add(RefreshToken(token=new_refresh, user_id=token_record.user_id))
+    
+    await db.commit()
+
+    return {
+        "access_token": new_access,
+        "refresh_token": new_refresh,
+        "token_type": "bearer"
+    }
+
+
+
+@router.post("/logout")
+@limiter.limit("10/minute")
+async def logout(request: Request, body: LogoutRequest, db: AsyncSession = Depends(get_db)):
+    
+    stmt = delete(RefreshToken).where(RefreshToken.token == body.refresh_token)
+    result = await db.execute(stmt)
+    
+    if result.rowcount == 0:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Invalid or already invalidated refresh token"
+        )
+    
+    await db.commit()
+
+    return {
+        "status": "success",
+        "message": "Logged out successfully. Refresh token invalidated."
+    }

@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+python-dotenv
+uuid6
+sqlalchemy
+asyncpg
+pycountry
+python-jose[cryptography]
+httpx
+slowapi
+requests
+pydantic-settings
+# pytest-asyncio
+# pytest-cov
+# aiosqlite

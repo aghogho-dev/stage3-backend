@@ -1,0 +1,10 @@
+__pychache__
+venv/
+profiles.db
+.env
+test*
+__pycache__/
+*.pyc
+.venv/
+*.json
+pytest*
