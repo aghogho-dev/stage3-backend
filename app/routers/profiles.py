@@ -16,6 +16,36 @@ from ..utils import limiter
 
 router = APIRouter(prefix="/api/profiles", tags=["Profiles"])
 
+
+@router.get("/search", dependencies=[Depends(verify_api_version)])
+@limiter.limit("60/minute")
+async def search_profiles(
+    request: Request,
+    q: Optional[str] = Query(None), 
+    page: int = Query(1, ge=1), 
+    limit: int = Query(10, ge=1, le=50), 
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user)):
+    
+    if not q or not q.strip():
+        raise HTTPException(status_code=400, detail="Missing query parameter")
+
+    interpreted_filters = parse_natural_language(q)
+    
+    if not interpreted_filters:
+        raise HTTPException(status_code=400, detail="Unable to interpret query")
+    
+    
+    return await get_profiles(
+        **interpreted_filters, 
+        page=page, 
+        limit=limit, 
+        db=db, 
+        user=user,
+        request=request
+    )
+
+
 @router.get("/", dependencies=[Depends(verify_api_version)])
 @limiter.limit("60/minute")
 async def get_profiles(
@@ -90,33 +120,33 @@ async def get_profiles(
         "data": data
     }
 
-@router.get("/search", dependencies=[Depends(verify_api_version)])
-@limiter.limit("60/minute")
-async def search_profiles(
-    request: Request,
-    q: Optional[str] = Query(None), 
-    page: int = Query(1, ge=1), 
-    limit: int = Query(10, ge=1, le=50), 
-    db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user)):
+# @router.get("/search", dependencies=[Depends(verify_api_version)])
+# @limiter.limit("60/minute")
+# async def search_profiles(
+#     request: Request,
+#     q: Optional[str] = Query(None), 
+#     page: int = Query(1, ge=1), 
+#     limit: int = Query(10, ge=1, le=50), 
+#     db: AsyncSession = Depends(get_db),
+#     user=Depends(get_current_user)):
     
-    if not q or not q.strip():
-        raise HTTPException(status_code=400, detail="Missing query parameter")
+#     if not q or not q.strip():
+#         raise HTTPException(status_code=400, detail="Missing query parameter")
 
-    interpreted_filters = parse_natural_language(q)
+#     interpreted_filters = parse_natural_language(q)
     
-    if not interpreted_filters:
-        raise HTTPException(status_code=400, detail="Unable to interpret query")
+#     if not interpreted_filters:
+#         raise HTTPException(status_code=400, detail="Unable to interpret query")
     
     
-    return await get_profiles(
-        **interpreted_filters, 
-        page=page, 
-        limit=limit, 
-        db=db, 
-        user=user,
-        request=request
-    )
+#     return await get_profiles(
+#         **interpreted_filters, 
+#         page=page, 
+#         limit=limit, 
+#         db=db, 
+#         user=user,
+#         request=request
+#     )
 
 
 
