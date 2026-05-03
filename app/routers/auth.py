@@ -11,6 +11,8 @@ import httpx
 
 from ..utils import limiter
 
+from fastapi.responses import RedirectResponse
+
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -85,8 +87,18 @@ async def process_github_auth(code: str, db: AsyncSession):
 
 @router.get("/github/callback")
 @limiter.limit("10/minute")
-async def callback(request: Request, code: str, db: AsyncSession = Depends(get_db)):
-    return await process_github_auth(code, db)
+async def callback(request: Request, code: str, state: str = None, db: AsyncSession = Depends(get_db)):
+    auth_data = await process_github_auth(code, db)
+
+    if state == "cli":
+        access = auth_data["access_token"]
+        refresh = auth_data["refresh_token"]
+
+        return RedirectResponse(
+            url=f"http://localhost:8000/callback?access_token={access}&refresh_token={refresh}"
+        )
+    
+    return auth_data
 
 
 @router.post("/token")
