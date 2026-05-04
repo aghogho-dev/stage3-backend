@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy import select, delete 
 from sqlalchemy.ext.asyncio import AsyncSession
 from jose import jwt, JWTError
@@ -87,7 +87,12 @@ async def process_github_auth(code: str, db: AsyncSession):
 
 @router.get("/github/callback")
 @limiter.limit("10/minute")
-async def callback(request: Request, code: str, state: str = None, db: AsyncSession = Depends(get_db)):
+async def callback(
+    request: Request, 
+    response: Response,
+    code: str, 
+    state: str = None, 
+    db: AsyncSession = Depends(get_db)):
     auth_data = await process_github_auth(code, db)
 
     if state == "cli":
@@ -98,7 +103,26 @@ async def callback(request: Request, code: str, state: str = None, db: AsyncSess
             url=f"http://localhost:8000/callback?access_token={access}&refresh_token={refresh}"
         )
     
-    return auth_data
+    web_redirect = RedirectResponse(url="https://your-frontend-url.vercel.app/dashboard")
+    
+    web_redirect.set_cookie(
+        key="access_token",
+        value=auth_data["access_token"],
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=180
+    )
+
+    web_redirect.set_cookie(
+        key="refresh_token",
+        value=auth_data["refresh_token"],
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=300
+    )
+    return web_redirect  
 
 
 @router.post("/token")
