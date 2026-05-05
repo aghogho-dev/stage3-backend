@@ -1,3 +1,5 @@
+from urllib import response
+
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy import select, delete 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -87,7 +89,7 @@ async def process_github_auth(code: str, db: AsyncSession):
 
 @router.get("/github")
 @limiter.limit("10/minute")
-async def github_login(state: str = None):
+async def github_login(request:Request, state: str = None):
     """
     Step 1: Redirect user to GitHub's OAuth page.
     """
@@ -209,7 +211,7 @@ async def refresh_access_token(request: Request, refresh_token: str, db: AsyncSe
 
 @router.post("/logout")
 @limiter.limit("10/minute")
-async def logout(response: Response):
+async def logout(request: Request, response: Response):
     response.delete_cookie(key="access_token", httponly=True, secure=True, samesite="none")
     response.delete_cookie(key="refresh_token", httponly=True, secure=True, samesite="none")
     return {"message": "Logged out"}
@@ -217,7 +219,7 @@ async def logout(response: Response):
 
 @router.get("/whoami")
 @limiter.limit("10/minute")
-async def whoami(current_user: User = Depends(get_current_user)):
+async def whoami(request: Request, current_user: User = Depends(get_current_user)):
     return {
         "id": str(current_user.id),
         "username": current_user.username,
