@@ -84,6 +84,21 @@ async def process_github_auth(code: str, db: AsyncSession):
             }
         }
 
+@router.get("/github")
+async def github_login(state: str = None):
+    """
+    Step 1: Redirect user to GitHub's OAuth page.
+    """
+    scope = "read:user user:email"
+    
+    github_url = (
+        f"https://github.com/login/oauth/authorize?"
+        f"client_id={settings.GITHUB_CLIENT_ID}&"
+        f"scope={scope}&"
+        f"state={state if state else 'web'}"
+    )
+    return RedirectResponse(url=github_url)
+
 
 @router.get("/github/callback")
 @limiter.limit("10/minute")
@@ -135,17 +150,6 @@ async def exchange_token(request: Request, body: dict, db: AsyncSession = Depend
 
 
 
-# @router.get("/github")
-# @limiter.limit("10/minute")
-# async def github_login():
-#     github_auth_url = (
-#         "https://github.com/login/oauth/authorize"
-#         f"?client_id={settings.GITHUB_CLIENT_ID}"
-#         f"&scope=user:email"
-#         f"&redirect_uri=https://stage3-backend-production.up.railway.app/auth/github/callback"
-#     )
-
-#     return RedirectResponse(github_auth_url)
 
 
 @router.post("/refresh")
