@@ -50,16 +50,31 @@ async def log_requests(request: Request, call_next):
 #     response.headers["Access-Control-Allow-Headers"] = "*"
 #     return response
 
+from fastapi import Response # Add this import at the top
+
 @app.middleware("http")
 async def add_cors_header(request: Request, call_next):
+    # 1. Handle Preflight OPTIONS requests
+    if request.method == "OPTIONS":
+        response = Response()
+        response.headers["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-API-Version"
+        return response
+
+    # 2. Process the actual request
     response = await call_next(request)
     
+    # 3. Apply headers to the final response
     response.headers["Access-Control-Allow-Origin"] = "http://localhost:5173"
     response.headers["Access-Control-Allow-Credentials"] = "true"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-API-Version"
     
     return response
+
+
 # --- CUSTOM ERROR HANDLING ---
 
 @app.exception_handler(HTTPException)
