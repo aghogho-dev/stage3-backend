@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from jose import jwt, JWTError
 
 from ..core.config import settings 
-from ..core.security import create_tokens
+from ..core.security import create_tokens,get_current_user
 from ..database import get_db 
 from ..models import User, RefreshToken, LogoutRequest 
 import httpx 
@@ -12,6 +12,7 @@ import httpx
 from ..utils import limiter
 
 from fastapi.responses import RedirectResponse
+
 
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -85,6 +86,7 @@ async def process_github_auth(code: str, db: AsyncSession):
         }
 
 @router.get("/github")
+@limiter.limit("10/minute")
 async def github_login(state: str = None):
     """
     Step 1: Redirect user to GitHub's OAuth page.
@@ -150,8 +152,6 @@ async def exchange_token(request: Request, body: dict, db: AsyncSession = Depend
 
 
 
-
-
 @router.post("/refresh")
 @limiter.limit("10/minute")
 async def refresh_access_token(request: Request, refresh_token: str, db: AsyncSession = Depends(get_db)):
@@ -187,22 +187,41 @@ async def refresh_access_token(request: Request, refresh_token: str, db: AsyncSe
 
 
 
+# @router.post("/logout")
+# @limiter.limit("10/minute")
+# async def logout(request: Request, body: LogoutRequest, db: AsyncSession = Depends(get_db)):
+    
+#     stmt = delete(RefreshToken).where(RefreshToken.token == body.refresh_token)
+#     result = await db.execute(stmt)
+    
+#     if result.rowcount == 0:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED, 
+#             detail="Invalid or already invalidated refresh token"
+#         )
+    
+#     await db.commit()
+
+#     return {
+#         "status": "success",
+#         "message": "Logged out successfully. Refresh token invalidated."
+#     }
+
 @router.post("/logout")
 @limiter.limit("10/minute")
-async def logout(request: Request, body: LogoutRequest, db: AsyncSession = Depends(get_db)):
-    
-    stmt = delete(RefreshToken).where(RefreshToken.token == body.refresh_token)
-    result = await db.execute(stmt)
-    
-    if result.rowcount == 0:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
-            detail="Invalid or already invalidated refresh token"
-        )
-    
-    await db.commit()
+async def logout(response: Response):
+    response.delete_cookie(key="access_token", httponly=True, secure=True, samesite="none")
+    response.delete_cookie(key="refresh_token", httponly=True, secure=True, samesite="none")
+    return {"message": "Logged out"}
 
+
+@router.get("/whoami")
+@limiter.limit("10/minute")
+async def whoami(current_user: User = Depends(get_current_user)):
     return {
-        "status": "success",
-        "message": "Logged out successfully. Refresh token invalidated."
+        "id": str(current_user.id),
+        "username": current_user.username,
+        "email": current_user.email,
+        "role": current_user.role,
+        "is_active": current_user.is_active
     }
