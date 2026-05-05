@@ -118,7 +118,7 @@ async def callback(
             url=f"http://localhost:8000/callback?access_token={access}&refresh_token={refresh}"
         )
     
-    web_redirect = RedirectResponse(url="https://your-frontend-url.vercel.app/dashboard")
+    web_redirect = RedirectResponse(url=url="http://localhost:5173/")
     
     web_redirect.set_cookie(
         key="access_token",
