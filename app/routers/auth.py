@@ -135,17 +135,17 @@ async def exchange_token(request: Request, body: dict, db: AsyncSession = Depend
 
 
 
-@router.get("/github")
-@limiter.limit("10/minute")
-async def github_login():
-    github_auth_url = (
-        "https://github.com/login/oauth/authorize"
-        f"?client_id={settings.GITHUB_CLIENT_ID}"
-        f"&scope=user:email"
-        f"&redirect_uri=https://stage3-backend-production.up.railway.app/auth/github/callback"
-    )
+# @router.get("/github")
+# @limiter.limit("10/minute")
+# async def github_login():
+#     github_auth_url = (
+#         "https://github.com/login/oauth/authorize"
+#         f"?client_id={settings.GITHUB_CLIENT_ID}"
+#         f"&scope=user:email"
+#         f"&redirect_uri=https://stage3-backend-production.up.railway.app/auth/github/callback"
+#     )
 
-    return RedirectResponse(github_auth_url)
+#     return RedirectResponse(github_auth_url)
 
 
 @router.post("/refresh")
