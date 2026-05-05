@@ -125,7 +125,7 @@ async def callback(
         value=auth_data["access_token"],
         httponly=True,
         secure=True,
-        samesite="lax",
+        samesite="none",
         max_age=180
     )
 
@@ -134,7 +134,7 @@ async def callback(
         value=auth_data["refresh_token"],
         httponly=True,
         secure=True,
-        samesite="lax",
+        samesite="none",
         max_age=300
     )
     return web_redirect  
