@@ -57,7 +57,7 @@ async def add_cors_header(request: Request, call_next):
     # 1. Handle Preflight OPTIONS requests
     if request.method == "OPTIONS":
         response = Response()
-        response.headers["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response.headers["Access-Control-Allow-Origin"] = "https://stage3-web-production-ea34.up.railway.app"
         response.headers["Access-Control-Allow-Credentials"] = "true"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-API-Version"
@@ -67,7 +67,7 @@ async def add_cors_header(request: Request, call_next):
     response = await call_next(request)
     
     # 3. Apply headers to the final response
-    response.headers["Access-Control-Allow-Origin"] = "http://localhost:5173"
+    response.headers["Access-Control-Allow-Origin"] = "https://stage3-web-production-ea34.up.railway.app"
     response.headers["Access-Control-Allow-Credentials"] = "true"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-API-Version"

@@ -122,7 +122,7 @@ async def callback(
             url=f"http://localhost:8000/callback?access_token={access}&refresh_token={refresh}"
         )
     
-    web_redirect = RedirectResponse(url="http://localhost:5173/")
+    web_redirect = RedirectResponse(url="https://stage3-web-production-ea34.up.railway.app/")
     
     web_redirect.set_cookie(
         key="access_token",
