@@ -134,73 +134,18 @@ async def exchange_token(request: Request, body: dict, db: AsyncSession = Depend
     return await process_github_auth(code, db)
 
 
-# @router.get("/github/callback")
-# @limiter.limit("10/minute")
-# async def callback(request: Request, code: str, db: AsyncSession=Depends(get_db)):
-#     async with httpx.AsyncClient() as client:
-#         token_res = await client.post(
-#             "https://github.com/login/oauth/access_token",
-#             params={
-#                 "client_id": settings.GITHUB_CLIENT_ID,
-#                 "client_secret": settings.GITHUB_CLIENT_SECRET,
-#                 "code": code
-#             },
-#             headers={"Accept": "application/json"},
-#         )
 
-#         token_data = token_res.json()
+@router.get("/github")
+@limiter.limit("10/minute")
+async def github_login():
+    github_auth_url = (
+        "https://github.com/login/oauth/authorize"
+        f"?client_id={settings.GITHUB_CLIENT_ID}"
+        f"&scope=user:email"
+        f"&redirect_uri=https://stage3-backend-production.up.railway.app/auth/github/callback"
+    )
 
-#         gh_access_token = token_data.get("access_token")
-
-#         if not gh_access_token:
-#             raise HTTPException(
-#                 status_code=401,
-#                 detail="Failed to retrieve Github access token"
-#             )
-
-        
-#         user_res = await client.get(
-#             "https://api.github.com/user",
-#             headers={"Authorization": f"token {gh_access_token}"},
-#         )
-#         gh_user = user_res.json()
-#         github_id = str(gh_user.get("id"))
-
-
-#         query = select(User).where(User.github_id == github_id)
-#         result = await db.execute(query)
-#         user = result.scalar_one_or_none()
-
-#         if not user:
-#             user = User(
-#                 github_id=github_id,
-#                 username=gh_user.get("login"),
-#                 email=gh_user.get("email"),
-#                 role="analyst"
-#             )
-
-#             db.add(user)
-#             await db.flush()
-
-#         internal_user_id = str(user.id)
-#         access_token, refresh_token = create_tokens(internal_user_id)
-
-#         db.add(RefreshToken(token=refresh_token, user_id=user.id))
-
-#         await db.commit()
-#         await db.refresh(user)
-
-
-#         return {
-#             "access_token": access_token,
-#             "refresh_token": refresh_token,
-#             "token_type": "bearer",
-#             "user": {
-#                 "id": internal_user_id,
-#                 "username": user.username,
-#                 "role": user.role
-#             }
-#         }
+    return RedirectResponse(github_auth_url)
 
 
 @router.post("/refresh")
