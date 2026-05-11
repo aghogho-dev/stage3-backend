@@ -141,7 +141,7 @@ async def get_profiles(
         "data": data
     }
 
-@router.get("/upload", dependencies=[Depends(verify_api_version)])
+@router.post("/upload", dependencies=[Depends(verify_api_version)])
 @limiter.limit("5/minute")
 async def upload_csv(request: Request, file: UploadFile = File(...), db: AsyncSession=Depends(get_db)):
     content = await file.read()
