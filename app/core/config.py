@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     GITHUB_CLIENT_ID: str
     GITHUB_CLIENT_SECRET: str
     DATABASE_URL: str
+    REDIS_HOST: str
+    REDIS_PORT: int
+    REDIS_PASSWORD: str = ""
 
 
     model_config = SettingsConfigDict(

@@ -1,4 +1,6 @@
-from fastapi import Request, APIRouter, Query, Depends, Response, HTTPException, status
+import json
+
+from fastapi import Request, APIRouter, File, UploadFile, Query, Depends, Response, HTTPException, status
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
@@ -12,7 +14,9 @@ from ..parser import parse_natural_language
 from ..core.security import get_current_user
 from ..core.dependencies import verify_api_version, check_admin
 
-from ..utils import limiter
+from ..utils import limiter, generate_normalized_cache_key
+from ..services.ingestion import stream_csv_ingestion
+from ..core.redis import get_redis
 
 router = APIRouter(prefix="/api/profiles", tags=["Profiles"])
 
@@ -35,8 +39,21 @@ async def search_profiles(
     if not interpreted_filters:
         raise HTTPException(status_code=400, detail="Unable to interpret query")
     
+    cache_context = {
+        **interpreted_filters,
+        "page": page,
+        "limit": limit
+    }
+    cache_key = generate_normalized_cache_key(cache_context)
+
+
+    redis = get_redis()
+    cached_result = redis.get(cache_key)
+
+    if cached_result:
+        return Response(content=cached_result, media_type="application/json")
     
-    return await get_profiles(
+    result = await get_profiles(
         **interpreted_filters, 
         page=page, 
         limit=limit, 
@@ -44,6 +61,10 @@ async def search_profiles(
         user=user,
         request=request
     )
+
+    redis.setex(cache_key, value=json.dumps(result), ex=300)
+
+    return result
 
 
 @router.get("/", dependencies=[Depends(verify_api_version)])
@@ -120,34 +141,11 @@ async def get_profiles(
         "data": data
     }
 
-# @router.get("/search", dependencies=[Depends(verify_api_version)])
-# @limiter.limit("60/minute")
-# async def search_profiles(
-#     request: Request,
-#     q: Optional[str] = Query(None), 
-#     page: int = Query(1, ge=1), 
-#     limit: int = Query(10, ge=1, le=50), 
-#     db: AsyncSession = Depends(get_db),
-#     user=Depends(get_current_user)):
-    
-#     if not q or not q.strip():
-#         raise HTTPException(status_code=400, detail="Missing query parameter")
-
-#     interpreted_filters = parse_natural_language(q)
-    
-#     if not interpreted_filters:
-#         raise HTTPException(status_code=400, detail="Unable to interpret query")
-    
-    
-#     return await get_profiles(
-#         **interpreted_filters, 
-#         page=page, 
-#         limit=limit, 
-#         db=db, 
-#         user=user,
-#         request=request
-#     )
-
+@router.get("/upload", dependencies=[Depends(verify_api_version)])
+@limiter.limit("5/minute")
+async def upload_csv(request: Request, file: UploadFile = File(...), db: AsyncSession=Depends(get_db)):
+    content = await file.read()
+    return await stream_csv_ingestion(content, db)
 
 
 

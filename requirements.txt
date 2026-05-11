@@ -10,6 +10,9 @@ httpx
 slowapi
 requests
 pydantic-settings
+redis 
+python-multipart
+passlib[bcrypt]
 # pytest-asyncio
 # pytest-cov
 # aiosqlite

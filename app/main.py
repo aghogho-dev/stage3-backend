@@ -10,11 +10,12 @@ from slowapi.errors import RateLimitExceeded
 
 from .utils import limiter
 from .routers import auth, profiles
-from .database import engine, Base
+from .database import engine, Base, init_optimization
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await init_optimization()
     # Startup: Create tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
